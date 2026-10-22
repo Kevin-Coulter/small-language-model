@@ -146,12 +146,13 @@ class GPT(nn.Module):
         was_training = self.training
         self.eval()
         try:
+            max_new_tokens = min(max_new_tokens, self.cfg.block_size - 1)
             idx = idx[:, -(self.cfg.block_size - max_new_tokens):]
             caches = [{} for _ in self.blocks]
             seen = idx[0].tolist()
             logits, _ = self(idx, caches=caches)
             pos = idx.size(1)
-            for _ in range(max_new_tokens):
+            for i in range(max_new_tokens):
                 logits = logits[:, -1, :].float()
                 if repetition_penalty != 1.0:
                     ids = torch.tensor(sorted(set(seen)), device=logits.device)
@@ -171,7 +172,7 @@ class GPT(nn.Module):
                 nxt = torch.multinomial(probs, 1, generator=generator)
                 token = nxt.item()
                 yield token
-                if token == eos_id:
+                if token == eos_id or i == max_new_tokens - 1:
                     break
                 seen.append(token)
                 logits, _ = self(nxt, caches=caches, start_pos=pos)
